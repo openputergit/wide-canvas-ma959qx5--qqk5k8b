@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+    }
+    .loader {
+        border: 3px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 3px solid #3498db;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        display: none;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header with Month -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold" id="currentMonth"></h1>
+            <button onclick="showAddExpenseModal()" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                Add Expense
+            </button>
+        </div>
+
+        <!-- Summary Boxes -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-green-500 text-white p-4 rounded-lg">
+                <h2 class="text-lg font-semibold">Credit</h2>
+                <p class="text-2xl font-bold" id="creditAmount">₹0</p>
+            </div>
+            <div class="bg-red-500 text-white p-4 rounded-lg">
+                <h2 class="text-lg font-semibold">Debit</h2>
+                <p class="text-2xl font-bold" id="debitAmount">₹0</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h2 class="text-lg font-semibold">Balance</h2>
+                <p class="text-2xl font-bold" id="balanceAmount">₹0</p>
+            </div>
+        </div>
+
+        <!-- Date Filter -->
+        <div class="mb-6">
+            <input type="date" id="dateFilter" class="border rounded-lg px-4 py-2" onchange="filterExpenses()">
+        </div>
+
+        <!-- Expense List -->
+        <div class="bg-white rounded-lg shadow p-4">
+            <h2 class="text-xl font-semibold mb-4">Expenses</h2>
+            <div id="expenseList" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div id="addExpenseModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 class="text-xl font-semibold mb-4">Add Expense</h2>
+            <form id="expenseForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Title</label>
+                    <input type="text" id="title" required class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Category</label>
+                    <select id="category" required class="w-full border rounded-lg px-3 py-2">
+                        <option value="food">Food</option>
+                        <option value="transport">Transport</option>
+                        <option value="utilities">Utilities</option>
+                        <option value="entertainment">Entertainment</option>
+                        <option value="shopping">Shopping</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Amount</label>
+                    <input type="number" id="amount" required class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Type</label>
+                    <select id="type" required class="w-full border rounded-lg px-3 py-2">
+                        <option value="credit">Credit</option>
+                        <option value="debit">Debit</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Payment Method</label>
+                    <select id="paymentType" required class="w-full border rounded-lg px-3 py-2">
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="upi">UPI</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Note</label>
+                    <textarea id="note" class="w-full border rounded-lg px-3 py-2"></textarea>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="hideAddExpenseModal()" class="bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const appSlug = 'expense-manager-123456';
+        let currentMonthExpenses = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCurrentMonth();
+            loadExpenses();
+        });
+
+        // Update current month display
+        function updateCurrentMonth() {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const now = new Date();
+            document.getElementById('currentMonth').textContent = `${months[now.getMonth()]} ${now.getFullYear()}`;
+        }
+
+        // Show/Hide Modal
+        function showAddExpenseModal() {
+            document.getElementById('addExpenseModal').classList.remove('hidden');
+        }
+
+        function hideAddExpenseModal() {
+            document.getElementById('addExpenseModal').classList.add('hidden');
+        }
+
+        // Handle form submission
+        document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const expenseData = {
+                title: document.getElementById('title').value,
+                category: document.getElementById('category').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                type: document.getElementById('type').value,
+                paymentType: document.getElementById('paymentType').value,
+                note: document.getElementById('note').value,
+                date: new Date().toISOString()
+            };
+
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer bjd474GVmbTbXCciCFzFwXCW6MG2'
+                    },
+                    body: JSON.stringify({
+                        appSlug,
+                        action: 'create',
+                        collection: 'expenses',
+                        data: expenseData
+                    })
+                });
+
+                if (response.ok) {
+                    hideAddExpenseModal();
+                    document.getElementById('expenseForm').reset();
+                    loadExpenses();
+                }
+            } catch (error) {
+                console.error('Error adding expense:', error);
+            }
+        });
+
+        // Load expenses
+        async function loadExpenses() {
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer bjd474GVmbTbXCciCFzFwXCW6MG2'
+                    },
+                    body: JSON.stringify({
+                        appSlug,
+                        action: 'read',
+                        collection: 'expenses'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    currentMonthExpenses = data.result;
+                    displayExpenses(currentMonthExpenses);
+                    updateSummary(currentMonthExpenses);
+                }
+            } catch (error) {
+                console.error('Error loading expenses:', error);
+            }
+        }
+
+        // Display expenses
+        function displayExpenses(expenses) {
+            const expenseList = document.getElementById('expenseList');
+            expenseList.innerHTML = '';
+
+            expenses.forEach(expense => {
+                const date = new Date(expense.date).toLocaleDateString();
+                const expenseEl = document.createElement('div');
+                expenseEl.className = 'flex justify-between items-center p-4 border rounded-lg';
+                expenseEl.innerHTML = `
+                    <div>
+                        <h3 class="font-semibold">${expense.title}</h3>
+                        <p class="text-sm text-gray-500">${expense.category} - ${date}</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="${expense.type === 'credit' ? 'text-green-500' : 'text-red-500'}">
+                            ₹${expense.amount}
+                        </span>
+                        <button onclick="deleteExpense('${expense._id}')" class="text-red-500 hover:text-red-700">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+                expenseList.appendChild(expenseEl);
+            });
+        }
+
+        // Update summary
+        function updateSummary(expenses) {
+            let credit = 0;
+            let debit = 0;
+
+            expenses.forEach(expense => {
+                if (expense.type === 'credit') {
+                    credit += expense.amount;
+                } else {
+                    debit += expense.amount;
+                }
+            });
+
+            document.getElementById('creditAmount').textContent = `₹${credit}`;
+            document.getElementById('debitAmount').textContent = `₹${debit}`;
+            document.getElementById('balanceAmount').textContent = `₹${credit - debit}`;
+        }
+
+        // Delete expense
+        async function deleteExpense(id) {
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer bjd474GVmbTbXCciCFzFwXCW6MG2'
+                    },
+                    body: JSON.stringify({
+                        appSlug,
+                        action: 'delete',
+                        collection: 'expenses',
+                        id
+                    })
+                });
+
+                if (response.ok) {
+                    loadExpenses();
+                }
+            } catch (error) {
+                console.error('Error deleting expense:', error);
+            }
+        }
+
+        // Filter expenses by date
+        function filterExpenses() {
+            const dateFilter = document.getElementById('dateFilter').value;
+            if (!dateFilter) {
+                displayExpenses(currentMonthExpenses);
+                return;
+            }
+
+            const filteredExpenses = currentMonthExpenses.filter(expense => {
+                const expenseDate = new Date(expense.date).toISOString().split('T')[0];
+                return expenseDate === dateFilter;
+            });
+
+            displayExpenses(filteredExpenses);
+            updateSummary(filteredExpenses);
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
